@@ -21,6 +21,8 @@ from __future__ import print_function
 
 import csv
 import os
+import sys
+import time
 import logging
 import argparse
 import random
@@ -502,6 +504,8 @@ def main():
                              warmup=args.warmup_proportion,
                              t_total=t_total)
 
+    model_save_path = os.path.join(args.output_dir, "model.pt")
+
     global_step = 0
     if args.do_train:
         train_features = convert_examples_to_features(
@@ -551,6 +555,15 @@ def main():
                     optimizer.zero_grad()
                     global_step += 1
 
+        # save this model for re-use
+        torch.save(model, model_save_path)
+    else:
+        # if the model exists, load it from disk, since this one is fine tuned already
+        # else use the pretrained one
+        if os.path.exists(model_save_path):
+            model = torch.load(model_save_path)
+
+
     # Save a trained model
     model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
     output_model_file = os.path.join(args.output_dir, "pytorch_model.bin")
@@ -580,6 +593,7 @@ def main():
         model.eval()
         eval_loss, eval_accuracy = 0, 0
         nb_eval_steps, nb_eval_examples = 0, 0
+        start_time = time.time()
         for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
             input_ids = input_ids.to(device)
             input_mask = input_mask.to(device)
@@ -599,6 +613,11 @@ def main():
 
             nb_eval_examples += input_ids.size(0)
             nb_eval_steps += 1
+        end_time = time.time()
+        diff_time  = end_time - start_time
+        print("Examples evaluated: %s" % nb_eval_examples)
+        print("Diff time total: %s seconds" % diff_time)
+        print("Average time per example: %s seconds" % (diff_time / nb_eval_examples))
 
         eval_loss = eval_loss / nb_eval_steps
         eval_accuracy = eval_accuracy / nb_eval_examples
