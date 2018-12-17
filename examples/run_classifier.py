@@ -259,7 +259,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
         assert len(segment_ids) == max_seq_length
 
         label_id = label_map[example.label]
-        if ex_index < 5:
+        if ex_index < 1:
             logger.info("*** Example ***")
             logger.info("guid: %s" % (example.guid))
             logger.info("tokens: %s" % " ".join(
@@ -434,7 +434,8 @@ def main():
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
 
     if os.path.exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
+        # raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
+        pass
     os.makedirs(args.output_dir, exist_ok=True)
 
     task_name = args.task_name.lower()
@@ -507,6 +508,8 @@ def main():
     model_save_path = os.path.join(args.output_dir, "model.pt")
 
     global_step = 0
+    tr_loss = 0.1
+    nb_tr_examples, nb_tr_steps = 0.1, 0.1
     if args.do_train:
         train_features = convert_examples_to_features(
             train_examples, label_list, args.max_seq_length, tokenizer)
@@ -594,7 +597,9 @@ def main():
         eval_loss, eval_accuracy = 0, 0
         nb_eval_steps, nb_eval_examples = 0, 0
         start_time = time.time()
+        batch_times = []
         for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
+            start_time_batch = time.time()
             input_ids = input_ids.to(device)
             input_mask = input_mask.to(device)
             segment_ids = segment_ids.to(device)
@@ -613,11 +618,16 @@ def main():
 
             nb_eval_examples += input_ids.size(0)
             nb_eval_steps += 1
+            end_time_batch = time.time()
+            diff_time_batch  = end_time_batch - start_time_batch
+            batch_times.append(diff_time_batch)
+            
         end_time = time.time()
         diff_time  = end_time - start_time
         print("Examples evaluated: %s" % nb_eval_examples)
         print("Diff time total: %s seconds" % diff_time)
         print("Average time per example: %s seconds" % (diff_time / nb_eval_examples))
+        print("Batch times: %s" % batch_times)
 
         eval_loss = eval_loss / nb_eval_steps
         eval_accuracy = eval_accuracy / nb_eval_examples
